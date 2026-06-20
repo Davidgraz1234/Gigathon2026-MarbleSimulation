@@ -51,7 +51,6 @@ class Renderer:
         self.canvas = self.screen.getcanvas()
 
         self.root = self.canvas.winfo_toplevel()
-        self.root.overrideredirect(True)
 
         # ---  Set scaling constants  --- #
         self.screensize = self.screen.screensize()
@@ -177,6 +176,31 @@ class Renderer:
         turtle.width(1)
         turtle.color("black")
 
+    # ---  Render the Energy Bar  --- #
+    def render_energy_bar(self):
+        turtle.color("yellow")
+        turtle.width(4)
+        turtle.setpos(-self.screenMaxX, -self.screenMaxY - 20)
+        turtle.pendown()
+        turtle.setpos(((2 * self.screenMaxX) * (
+                    playerInstance.energy / initialE)) - self.screenMaxX, -self.screenMaxY - 20)
+        turtle.penup()
+        turtle.width(1)
+        turtle.color("black")
+
+    # ---  Render the Events  --- #
+    def render_event(self):
+        if simulationInstance.currentStep - simulationInstance.eventStep < 2:
+            if simulationInstance.event == "Wirbelsturm":
+                self.print_image("wirbelsturm",0,self.screenMaxY+40)
+            if simulationInstance.event == "Gegenwind":
+                self.print_image("gegenwind",0,self.screenMaxY+40)
+        elif simulationInstance.currentStep - simulationInstance.eventStep < 20:
+            if simulationInstance.event == "Wirbelsturm":
+                self.print_image("wirbelsturm",0,self.screenMaxY+40+((simulationInstance.currentStep - simulationInstance.eventStep)*2))
+            if simulationInstance.event == "Gegenwind":
+                self.print_image("gegenwind",0,self.screenMaxY+40+((simulationInstance.currentStep - simulationInstance.eventStep)*2))
+
     #####  Rendering a frame  #####
     def render(self):
         turtle.clear()
@@ -192,6 +216,8 @@ class Renderer:
         for power in simulationInstance.powers:
             self.print_sprite("power", power[0], power[1])
         self.render_progress_bar()
+        self.render_energy_bar()
+        self.render_event()
         self.screen.update()
 
 
@@ -240,6 +266,7 @@ class Player:
             self.x += change_x
             self.y += change_y
         else:
+            simulationInstance.wallHits += 1
             self.energy -= 10
             self.positions.append(renderingInstance.get_grid_box_center(self.x, self.y))
             angle_before_turn = self.angle
@@ -324,6 +351,9 @@ class Simulation:
         self.storms = 0
         self.winds = 0
         self.success = False
+        self.eventStep = -100
+        self.event = None
+        self.wallHits = 0
 
         # ---  Create deflectors  --- #
         # --- Make possibles --- #
@@ -387,12 +417,16 @@ class Simulation:
             playerInstance.angle = random.choice(list(playerInstance.decodeDirection.keys()))
             playerInstance.positions.append(renderingInstance.get_grid_box_center(playerInstance.x, playerInstance.y))
             playerInstance.extraLog.append("Das Zufallsevent Wirbelsturm ist eingetreten, und die Richtung der Kugel wurde zufällig geändert von Richtung " + str(initial_direction) + " auf Richtung " + str(playerInstance.angle))
+            self.event = "Wirbelsturm"
+            self.eventStep = self.currentStep
 
         # ---  Run Gegenwind  --- #
         if random.randint(1,50) == 1:
             self.winds += 1
             playerInstance.energy -= 10
             playerInstance.extraLog.append("Das Zufallsevent Gegenwind ist eingetreten, und die Kugel verlor 10 Energie")
+            self.event = "Gegenwind"
+            self.eventStep = self.currentStep
 
         # ---  Conduct movement  --- #
         if playerInstance.energy > 0:
@@ -413,16 +447,16 @@ class Simulation:
             if playerInstance.energy <= 0:
                 self.step()
                 print("-"*50)
-                print("Die Simulation wurde Angehalten, da die Energie der Kugel aufgebraucht wurde.")
+                print("Die Simulation wurde angehalten, da die Energie der Kugel aufgebraucht wurde.")
                 simulationInstance.success = False
                 break
         if playerInstance.energy > 0:
             print("-" * 50)
-            print("Die Simulation wurde Angehalten, da die maximale Schrittzahl erreicht wurde.")
+            print("Die Simulation wurde angehalten, da die maximale Schrittzahl erreicht wurde.")
             simulationInstance.success = True
         else:
             print("-" * 50)
-            print("Die Simulation wurde Angehalten, da die Energie der Kugel aufgebraucht wurde.")
+            print("Die Simulation wurde angehalten, da die Energie der Kugel aufgebraucht wurde.")
             simulationInstance.success = False
 
 
@@ -432,19 +466,20 @@ while simulating:
     renderingInstance = Renderer(25, 35)
 
     ######   Automatic Explanation   #####
-    input("Dieses Programm ist eine Simulation einer Kugel die anhand von eingegebenen Parametern automatisch ausgeführt wird. Sie ist erfolgreich, wenn die Energie ausreicht. [Enter] zum fortfahren...")
-    input("Diese Simulation enthält drei Elemente mit denen eine Kugel kollidieren kann, wonach sie sich selbst zerstören: Abpraller, Randomizer, und Power-items. [Enter] zum fortfahren...")
-    input("Abpraller prallen die Kugel in die entgegengesetzte Richtung von der sie kam ab. [Enter] zum fortfahren...")
-    input("Randomizer schickt die Kugel in eine Zufällige richtung. [Enter] zum fortfahren...")
-    input("Power-items erhöhen die Energie der Kugel um 50. [Enter] zum fortfahren...")
-    input("Die Kugel besitzt Energie. Sie verliert diese bei einer Kollision mit einer Wand (wobei sie von der Wand abprallt), sowie konstant bei jeder Bewegung aufgrund von Reibung. [Enter] zum fortfahren...")
-    input("Die Kugel gewinnt Energie wenn sie mit einem Element interagiert. [Enter] zum fortfahren...")
-    input("Zusätzlich gibt es zwei Zufallsevents, die bei jedem Schritt eine chance aufzutreten besitzen. [Enter] zum fortfahren...")
-    input("Das Erste ist Wirbelsturm. Dies setzt die Richtung der Kugel auf eine Zufällige Richtung. [Enter] zum fortfahren...")
-    input("Das Zweite ist Gegenwind. Dies nimmt der Kugel 10 Energie. [Enter] zum fortfahren...")
-    input("Die simulation wird bei einem vollständigen Verlust der Energie, oder bei überschreitung der maximalen Simulationsschritten abgebrochen. [Enter] zum fortfahren...")
-    input("Die gesamte simulation wird im Terminal protokolliert. [Enter] zum fortfahren...")
-    input("Sie werden nun dazu aufgefordert, die Startparameter einzugeben. [Enter] zum fortfahren...")
+    input("Dieses Programm ist eine Simulation einer Kugel, die anhand von eingegebenen Parametern automatisch ausgeführt wird. Sie ist erfolgreich, wenn die Energie ausreicht. [Enter] zum Fortfahren...")
+    input("Diese Simulation enthält drei Elemente, mit denen eine Kugel kollidieren kann, wonach die Elemente sich selbst zerstören: Abpraller, Randomizer und Power-Items. [Enter] zum Fortfahren...")
+    input("Bei Abprallern prallt die Kugel in die entgegengesetzte Richtung, von der sie kam, ab. Sie sind grün und gelb gefärbt in Turtle. [Enter] zum Fortfahren...")
+    input("Randomizer schicken die Kugel in eine zufällige Richtung. Sie sind rot und grün gefärbt in Turtle. [Enter] zum Fortfahren...")
+    input("Power-Items erhöhen die Energie der Kugel um 50 Energiepunkte. Sie sehen in Turtle aus wie Blitze. [Enter] zum Fortfahren...")
+    input("Die Kugel besitzt Energie. Sie *verliert* diese bei einer Kollision mit einer Wand (wobei sie von der Wand abprallt) sowie konstant bei jeder Bewegung aufgrund von Reibung. [Enter] zum Fortfahren...")
+    input("Die Energie wird als gelbe Leiste unter der Simulation angezeigt. [Enter] zum Fortfahren...")
+    input("Die Kugel *gewinnt* Energie, wenn sie mit einem beliebigen Element interagiert. [Enter] zum Fortfahren...")
+    input("Zusätzlich gibt es zwei Zufallsevents, die bei jedem Simulationsschritt mit einer bestimmten Wahrscheinlichkeit auftreten können, aber nicht müssen. Diese werden auch unter der Simulation angezeigt, falls sie eingetreten sind. [Enter] zum Fortfahren...")
+    input("Das erste Event ist der Wirbelsturm. Dieser setzt die Richtung der Kugel auf eine zufällige Richtung. [Enter] zum Fortfahren...")
+    input("Das zweite Event ist der Gegenwind. Dieser nimmt der Kugel 10 Energiepunkte. [Enter] zum Fortfahren...")
+    input("Die Simulation wird bei einem vollständigen Verlust der Energie oder bei Überschreitung der maximalen Simulationsschritte abgebrochen. [Enter] zum Fortfahren...")
+    input("Die gesamte Simulation wird im Terminal protokolliert. [Enter] zum Fortfahren...")
+    input("Sie werden nun dazu aufgefordert, die Startparameter einzugeben. [Enter] zum Fortfahren...")
     print("\n"*50)
 
     ######   Gathering parameters   ######
@@ -456,7 +491,7 @@ while simulating:
 
     while not valid:
         try:
-            initialA = directions[input("Geben sie die Startrichtung als Himmelsrichtung an, gewählt von N, NE, E, SE, S, SW, W, NW: ")]
+            initialA = directions[input("Geben Sie die Startrichtung als Himmelsrichtung an, angegeben in den englischen Abkürzungen N, NE, E, SE, S, SW, W, NW: ")]
             valid = True
         except:
             print("Ungültige Eingabe, bitte versuchen Sie es erneut")
@@ -467,7 +502,7 @@ while simulating:
 
     while not valid:
         try:
-            initialX = int(input("Geben sie die Startposition x an, als ganze Zahl von 0 bis " + str(renderingInstance.columns - 1) + ": "))
+            initialX = int(input("Geben Sie die Startposition x als ganze Zahl von 0 bis " + str(renderingInstance.columns - 1) + " an: "))
             if initialX in range(renderingInstance.columns):
                 valid = True
         except:
@@ -479,7 +514,7 @@ while simulating:
 
     while not valid:
         try:
-            initialY = int(input("Geben sie die Startposition y an, als ganze Zahl von 0 bis " + str(renderingInstance.rows - 1) + ": "))
+            initialY = int(input("Geben Sie die Startposition y als ganze Zahl von 0 bis " + str(renderingInstance.rows - 1) + " an: "))
             if initialY in range(renderingInstance.rows):
                 valid = True
         except:
@@ -491,7 +526,7 @@ while simulating:
 
     while not valid:
         try:
-            steps = int(input("Geben sie ein wie viele Schritte simuliert werden sollen (Zwischen 1000 und 2000 sind empfohlen, gemessen auf einem M1 macbook): "))
+            steps = int(input("Geben Sie ein, wie viele Schritte simuliert werden sollen (Zwischen 1000 und 2000 sind empfohlen, gemessen auf einem M1 macbook, um akzeptable Berechnungsgeschwindigkeit und Speichernutzung zu gewährleisten): "))
             if steps > 0:
                 valid = True
             else:
@@ -505,7 +540,7 @@ while simulating:
 
     while not valid:
         try:
-            initialE = int(input("Geben sie die Startenergie an, als ganze Zahl. Empfohlen wird "+str(int(round(steps+(steps/3))))+": "))
+            initialE = int(input("Geben Sie die Startenergie als ganze Zahl an. Empfohlen wird "+str(int(round(steps+(steps/3))))+", basierend auf der angegebenen Schrittzahl: "))
             if initialE >= 0:
                 valid = True
         except:
@@ -517,7 +552,7 @@ while simulating:
 
     while not valid:
         try:
-            deflectors = int(input("Geben sie die Zahl der Abpraller an (Empfohlen wird 15): "))
+            deflectors = int(input("Geben Sie die Zahl der Abpraller an (Empfohlen wird 14): "))
             if deflectors > -1:
                 valid = True
         except:
@@ -529,7 +564,7 @@ while simulating:
 
     while not valid:
         try:
-            randomizers = int(input("Geben sie die Zahl der Randomizer an (Empfohlen wird 15): "))
+            randomizers = int(input("Geben Sie die Zahl der Randomizer an (Empfohlen wird 14): "))
             if randomizers > -1:
                 valid = True
         except:
@@ -541,7 +576,7 @@ while simulating:
 
         while not valid:
             try:
-                powers = int(input("Geben sie die Zahl der Power-items an (Empfohlen wird 15): "))
+                powers = int(input("Geben Sie die Zahl der Power-Items an (Empfohlen wird 14): "))
                 if powers > -1:
                     valid = True
             except:
@@ -551,13 +586,25 @@ while simulating:
 
     ######   Initialization of the program   ######
     # ---  Set up components  --- #
-    simulationInstance = Simulation(name, steps, deflectors, randomizers, powers, delay = 0)
-    renderingInstance.invoke_turtle()
-    playerInstance = Player(initialA, initialX, initialY, initialE)
+    creating = True
+    while creating:
+        try:
+            simulationInstance = Simulation(name, steps, deflectors, randomizers, powers, delay = 0)
+            renderingInstance.invoke_turtle()
+            playerInstance = Player(initialA, initialX, initialY, initialE)
+            creating = False
+        except:
+            pass
 
     # ---  Get image data  --- #
-    with open("pyproject.toml", "rb") as f:
-        imageData = tomllib.load(f)
+    opening = True
+    while opening:
+        try:
+            with open("pyproject.toml", "rb") as f:
+                imageData = tomllib.load(f)
+            opening = False
+        except:
+            pass
 
     # ---  Create the images  --- #
     for name in imageData.keys():
@@ -566,9 +613,9 @@ while simulating:
     ######   Initial log   ######
     print("\n"*50)
     renderingInstance.render()
-    print("Die Simulation " + simulationInstance.name + " beginnt in 5 Sekunden. Bitte halten sie das Turtle Fenster bereit.")
+    print("Die Simulation " + simulationInstance.name + " beginnt in 5 Sekunden. Bitte halten Sie das Turtle-Fenster bereit.")
     print("Unter der Simulation wird eine Fortschrittsleiste angezeigt, die visualisiert, wie viele Schritte der Maximalschritte erreicht sind. Sollte die Simulation sich nicht mehr bewegen, schauen sie ins Terminal um zu überprüfen ob die Simulation beendet ist.")
-    print("Die Parameter die eingegeben wurden lauten:")
+    print("Die Parameter, die eingegeben wurden, lauten:")
     print("Startrichtung: "+str(initialA))
     print("Startkoordinate: ("+str(initialX)+", "+str(initialY)+")")
     print("Maximalschritte: "+str(steps))
@@ -586,20 +633,31 @@ while simulating:
 
     ######   Establishing the simulation procedure   ######
     startingTime = time.time()
-    simulationInstance.simulate()
+    starting = True
+    while starting:
+        try:
+            simulationInstance.simulate()
+            starting = False
+        except:
+            pass
 
     ######   Output result   ######
     renderingInstance.render()
-    print("Die Simulation " + simulationInstance.name + " erfolgte in in " + str(round(time.time() - startingTime)) + " Sekunden")
-    print("Die Parameter die eingegeben wurden lauten:")
+    print("Die Simulation " + simulationInstance.name + " erfolgte in " + str(round(time.time() - startingTime)) + " Sekunden")
+    print("Die Parameter, die eingegeben wurden, lauten:")
     print("Startrichtung: " + str(initialA))
     print("Startkoordinate: (" + str(initialX) + ", " + str(initialY) + ")")
     print("Maximalschritte: " + str(steps))
     print("Startenergie: " + str(initialE))
+    print("Abpraller: " + str(deflectors))
+    print("Randomizer: " + str(randomizers))
+    print("Power-items: " + str(powers))
+    print("Die Endergebnisse sind:")
     print("Endkoordinate: (" + str(playerInstance.x) + ", " + str(playerInstance.y) + ")")
-    print("Genutzte Abpraller: " + str(deflectors))
-    print("Genutzte Randomizer: " + str(randomizers))
-    print("Genutzte Power-items: " + str(powers))
+    print("Genutzte Abpraller: " + str(deflectors-len(simulationInstance.deflectors)))
+    print("Genutzte Randomizer: " + str(randomizers-len(simulationInstance.randomizers)))
+    print("Genutzte Power-items: " + str(powers-len(simulationInstance.powers)))
+    print("Wandkollisionen: " + str(simulationInstance.wallHits))
     print("Anzahl von Wirbelstürmen: " + str(simulationInstance.storms))
     print("Anzahl von Gegenwinden: " + str(simulationInstance.winds))
     if simulationInstance.success:
@@ -609,7 +667,7 @@ while simulating:
 
     firstIteration = False
     print("-"*50)
-    simulating = input("Erneut Durchführen? J für Ja, N für Nein: ").lower() == "j"
+    simulating = input("Erneut durchführen? J für Ja, N für Nein: ").lower() == "j"
 
 ######   Exit program cleanly   ######
 renderingInstance.bye()
